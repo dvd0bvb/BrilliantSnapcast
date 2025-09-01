@@ -1,0 +1,46 @@
+name: Install GTest
+description: Install GTest for your platform
+author: David Brill (dvd0bvb)
+inputs:
+  tag:
+    description: Tag or branch name. Default is main.
+    required: false
+    default: main
+  build-type:
+    description: Build type
+    required: false
+    default: Release
+  dynamic-msvc-runtime:
+    description: Link the msvc runtime dynamically (default, MD) or statically (MT)
+    required: false
+    default: "true"
+  with-msan: 
+    description: Build gtest with additional instrumentation for msan
+    required: false
+    default: "false"
+  shell-name:
+    description: The shell running this action
+    required: true
+runs: 
+  using: "composite"
+  steps:
+    - name: Install gtest with msan
+      if: inputs.with-msan == 'true'
+      run: |
+        wget $(wget -q -O - https://api.github.com/repos/dvd0bvb/gtest-with-msan/releases/latest  |  jq -r '.assets[] | select(.name | contains ("deb")) | .browser_download_url')        
+        sudo dpkg -i gtest-with-msan-v1.0.0.deb
+      shell: ${{ inputs.shell-name }}
+
+    - name: Install gtest
+      if: inputs.with-msan == 'false' && runner.os != 'Windows'
+      run: sudo apt update && sudo apt install libgtest-dev libgmock-dev
+      shell: ${{ inputs.shell-name }}
+
+    - name: Build and install gtest
+      if: inputs.with-msan == 'false' && runner.os == 'Windows'
+      run: |
+        pushd ${{ github.action_path }}
+        .\install-gtest.bat ${{ inputs.tag }} ${{ inputs.build-type }} ${{ inputs.dynamic-msvc-runtime }}
+        popd
+        echo "CMAKE_PREFIX_PATH=C:/Program Files (x86)/googletest-distribution;$CMAKE_PREFIX_PATH" >> $env:GITHUB_ENV
+      shell: ${{ inputs.shell-name }}

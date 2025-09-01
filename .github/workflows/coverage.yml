@@ -1,0 +1,66 @@
+name: Code Coverage
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  code_coverage:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-24.04]
+        build_type: [Debug]
+        c_compiler: [gcc]
+        include:
+          - os: ubuntu-24.04
+            c_compiler: gcc
+            cpp_compiler: g++
+            shell: bash
+    
+    steps:
+    - name: Install LCOV
+      run: sudo apt update && sudo apt install lcov
+
+    - uses: actions/checkout@v4
+    - uses: ./.github/actions/build-project
+      with: 
+        c-compiler: ${{ matrix.c_compiler }}
+        cpp-compiler: ${{ matrix.cpp_compiler }}
+        build-type: ${{ matrix.build_type }}
+        shell-name: ${{ matrix.shell }}
+        cmake-config-args: -DBRILLIANT_CMAKE_CODE_COVERAGE=ON
+    
+    - name: Run LCOV
+      working-directory: ${{ github.workspace }} 
+      run: |
+        lcov -d build/src/CMakeFiles/project.dir -c -o build/coverage.info --branch-coverage
+        genhtml build/coverage.info -o docs/coverage --branch-coverage
+
+    - uses: ./.github/actions/parse-coverage
+      id: stats
+      with:
+        lcov-file: ${{ github.workspace }}/build/coverage.info
+
+    - working-directory: ${{ github.workspace }}
+      run: >
+        curl $(python3 .github/actions/parse-coverage/make-shield-url.py 
+        "${{ steps.stats.outputs.line-percent }} ${{ steps.stats.outputs.function-percent }} ${{ steps.stats.outputs.branch-percent }}" 
+        95 85)
+        > ${{ github.workspace }}/img/coverage.svg
+
+    - uses: oleksiyrudenko/gha-git-credentials@v2-latest
+      with:
+        token: ${{ github.token }}
+
+    - name: Push coverage badge to github
+      shell: bash
+      continue-on-error: true
+      run: |
+        RESULT=$(git diff ${{ github.workspace }}/img/coverage.svg)
+        if [ ! -z "$RESULT" ]; then
+        git commit ${{ github.workspace }}/img/coverage.svg -m '[skip ci] updated coverage badge from CI action'
+        git push
+        fi

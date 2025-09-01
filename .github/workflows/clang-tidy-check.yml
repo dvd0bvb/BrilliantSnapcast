@@ -1,0 +1,28 @@
+name: clang-tidy check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  setup-and-tidy:
+    runs-on: ubuntu-24.04
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: ./.github/actions/install-gtest
+      with:
+        shell-name: bash
+
+    - uses: ./.github/actions/config-cmake
+      with: 
+        cpp-compiler: g++
+        c-compiler: gcc
+        build-type: Debug
+        cmake-config-args: -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+    - uses: ./.github/actions/run-clang-tidy
+      with: 
+        shell-name: bash

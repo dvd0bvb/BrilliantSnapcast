@@ -1,0 +1,10 @@
+name: cmake-format Check
+on: [push, pull_request]
+jobs:
+  formatting-check:
+    runs-on: ubuntu-latest
+    steps:        
+    - uses: actions/checkout@v2
+    - uses: puneetmatharu/cmake-format-lint-action@v1.0.4
+      with:
+        args: --check -c .cmake-format

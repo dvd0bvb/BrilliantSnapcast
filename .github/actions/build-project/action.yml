@@ -1,0 +1,64 @@
+name: Build Project
+description: Build a CMake project
+author: David Brill (dvd0bvb)
+inputs:
+  c-compiler:
+    description: The C compiler being used
+    required: true
+  cpp-compiler:
+    description: The CXX compiler being used
+    required: true
+  build-type:
+    description: Build type
+    required: true
+  shell-name:
+    description: The shell to run commands in
+    required: true
+  cmake-config-args:
+    description: Additional arguments for Cmake config step
+    required: false
+  building-msan:
+    description: The project is being built with msan and needs addtional instrumentation
+    required: false
+    default: "false"
+runs:
+  using: "composite"  
+  steps:
+    - id: constants
+      uses: ./.github/actions/project-constants
+
+    # Update to the latest libc++ for clang
+    - name: Use libc++ for Clang
+      if: inputs.cpp-compiler == 'clang++'
+      uses: ./.github/actions/install-libc++
+      with:
+        shell-name: ${{ inputs.shell-name }}
+        with-msan: ${{ inputs.building-msan }}
+
+    - name: Install gtest 
+      uses: ./.github/actions/install-gtest
+      with:
+        build-type: Release
+        dynamic-msvc-runtime: "true"
+        shell-name: ${{ inputs.shell-name }}
+        with-msan: ${{ inputs.building-msan }}
+    
+    - uses: ./.github/actions/config-cmake
+      with: 
+        cpp-compiler: ${{ inputs.cpp-compiler }}
+        c-compiler: ${{ inputs.c-compiler }}
+        build-type: ${{ inputs.build-type }}
+        cmake-config-args: ${{ inputs.cmake-config-args }}        
+
+    - name: Build
+      working-directory: ${{ github.workspace }}
+      shell: ${{ inputs.shell-name }}
+      run: > 
+        cmake --build build 
+        --config ${{ inputs.build-type }} 
+        --target ${{ steps.constants.outputs.project-name }}_TEST
+
+    - name: Test
+      working-directory: ${{ github.workspace }}/build
+      shell: ${{ inputs.shell-name }}
+      run: ctest --build-config ${{ inputs.build-type }}
