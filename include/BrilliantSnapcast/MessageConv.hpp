@@ -5,6 +5,7 @@
 #include <span>
 #include <type_traits>
 #include <utility>
+
 #include "BrilliantSnapcast/Message.hpp"
 
 namespace brilliant::snapcast {
@@ -88,7 +89,8 @@ namespace brilliant::snapcast {
       // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
       error.error = reinterpret_cast<char*>(data);
       data += error.errorSize;
-      std::memcpy(&error.errorMessageSize, data, sizeof(error.errorMessageSize));
+      std::memcpy(&error.errorMessageSize, data,
+                  sizeof(error.errorMessageSize));
       data += sizeof(error.errorMessageSize);
       // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
       error.errorMessage = reinterpret_cast<char*>(data);
@@ -149,7 +151,8 @@ namespace brilliant::snapcast {
             data += sizeof(msg.errorSize);
             std::memcpy(data, msg.error, msg.errorSize);
             data += msg.errorSize;
-            std::memcpy(data, &msg.errorMessageSize, sizeof(msg.errorMessageSize));
+            std::memcpy(data, &msg.errorMessageSize,
+                        sizeof(msg.errorMessageSize));
             data += sizeof(msg.errorMessageSize);
             std::memcpy(data, msg.errorMessage, msg.errorMessageSize);
           } else {

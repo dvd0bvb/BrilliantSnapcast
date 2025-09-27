@@ -1,9 +1,9 @@
 #pragma once
 
+#include <boost/asio.hpp>
 #include <memory_resource>
 #include <span>
 #include <string_view>
-#include <boost/asio.hpp>
 
 namespace brilliant::snapcast {
 

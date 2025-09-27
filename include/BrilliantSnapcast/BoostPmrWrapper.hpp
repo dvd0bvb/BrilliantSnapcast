@@ -1,7 +1,7 @@
 #pragma once
 
-#include <memory_resource>
 #include <boost/container/pmr/memory_resource.hpp>
+#include <memory_resource>
 
 namespace brilliant::snapcast {
   /**
@@ -13,7 +13,7 @@ namespace brilliant::snapcast {
   public:
     /**
      * @brief Construct a new Boost Pmr Wrapper object
-     * 
+     *
      * @param mr A pointer to the memory resource
      */
     BoostPmrWrapper(std::pmr::memory_resource* mr) : _mr(mr) {}
@@ -21,7 +21,7 @@ namespace brilliant::snapcast {
   private:
     /**
      * @brief Allocate implementation
-     * 
+     *
      * @param bytes Number of bytes to allocate
      * @param alignment Allocation alignment
      * @return A pointer to allocated memory
@@ -33,7 +33,7 @@ namespace brilliant::snapcast {
 
     /**
      * @brief Deallocate implementation
-     * 
+     *
      * @param p Pointer to the memory to deallocate
      * @param bytes The number of bytes in the allocation
      * @param alignment The allocation alignment
@@ -45,13 +45,14 @@ namespace brilliant::snapcast {
 
     /**
      * @brief Equality check implementation
-     * 
+     *
      * @param mr The memory resource to compare to
      * @return True if the memory resources are equal
      */
     [[nodiscard]] auto do_is_equal(const boost::container::pmr::memory_resource&
                                        mr) const noexcept -> bool override {
-      // TODO(david): dynamic_cast requires RTTI which is not always enabled in embedded environments
+      // TODO(david): dynamic_cast requires RTTI which is not always enabled in
+      // embedded environments
       if (const auto wrapper = dynamic_cast<const BoostPmrWrapper*>(&mr);
           wrapper && wrapper->_mr) {
         return _mr->is_equal(*wrapper->_mr);

@@ -4,6 +4,7 @@
 #include <span>
 #include <string_view>
 #include <variant>
+
 #include "BrilliantSnapcast/MessageType.hpp"
 
 namespace brilliant::snapcast {

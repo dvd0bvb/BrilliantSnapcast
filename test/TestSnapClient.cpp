@@ -1,6 +1,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
 #include <boost/asio.hpp>
+
 #include "BrilliantSnapcast/SnapClient.hpp"
 #include "FakeSocket.hpp"
 #include "FakeUtilProvider.hpp"
@@ -30,8 +32,8 @@ TEST_F(TestSnapClient, testSendTime) {
       [this] -> boost::asio::awaitable<void> {
         constexpr auto bufferSize = 4096;
         std::vector<std::byte> buffer(bufferSize);
-        auto result =
-            co_await snapClient.send(0, brilliant::snapcast::Time{}, std::span(buffer));
+        auto result = co_await snapClient.send(0, brilliant::snapcast::Time{},
+                                               std::span(buffer));
         EXPECT_TRUE(result.has_value());
 
         const auto sentTime = result.value();
@@ -40,10 +42,10 @@ TEST_F(TestSnapClient, testSendTime) {
         brilliant::snapcast::read(std::span(state.outData), base);
         EXPECT_EQ(base.type, brilliant::snapcast::MessageType::TIME);
 
-        auto msg =
-            brilliant::snapcast::read(std::span(state.outData)
-                                 .subspan(sizeof(brilliant::snapcast::Base), base.size),
-                             base.type);
+        auto msg = brilliant::snapcast::read(
+            std::span(state.outData)
+                .subspan(sizeof(brilliant::snapcast::Base), base.size),
+            base.type);
         std::visit(
             [&sentTime](const auto& m) {
               if constexpr (std::is_same_v<std::decay_t<decltype(m)>,
@@ -67,18 +69,18 @@ TEST_F(TestSnapClient, testSendJsonMessage) {
       [this] -> boost::asio::awaitable<void> {
         constexpr auto bufSize = 4096;
         std::vector<std::byte> buffer(bufSize);
-        auto result = co_await snapClient.send(0, brilliant::snapcast::Hello{"testing"},
-                                               std::span(buffer));
+        auto result = co_await snapClient.send(
+            0, brilliant::snapcast::Hello{"testing"}, std::span(buffer));
         EXPECT_TRUE(result.has_value());
 
         brilliant::snapcast::Base base{};
         brilliant::snapcast::read(std::span(state.outData), base);
         EXPECT_EQ(base.type, brilliant::snapcast::MessageType::HELLO);
 
-        auto msg =
-            brilliant::snapcast::read(std::span(state.outData)
-                                 .subspan(sizeof(brilliant::snapcast::Base), base.size),
-                             base.type);
+        auto msg = brilliant::snapcast::read(
+            std::span(state.outData)
+                .subspan(sizeof(brilliant::snapcast::Base), base.size),
+            base.type);
         std::visit(
             [](const auto& m) {
               if constexpr (std::is_same_v<std::decay_t<decltype(m)>,
@@ -97,7 +99,7 @@ TEST_F(TestSnapClient, testSendJsonMessage) {
 TEST_F(TestSnapClient, testSendWireChunk) {
   boost::asio::co_spawn(
       context,
-        // NOLINTNEXTLINE(cppcoreguidelines-avoid-capturing-lambda-coroutines)
+      // NOLINTNEXTLINE(cppcoreguidelines-avoid-capturing-lambda-coroutines)
       [this] -> boost::asio::awaitable<void> {
         constexpr auto bufSize = 4096;
         std::vector<std::byte> buffer(bufSize);
@@ -107,7 +109,8 @@ TEST_F(TestSnapClient, testSendWireChunk) {
         // NOLINTEND
 
         auto result = co_await snapClient.send(
-            0, brilliant::snapcast::WireChunk{std::span(payload)}, std::span(buffer));
+            0, brilliant::snapcast::WireChunk{std::span(payload)},
+            std::span(buffer));
         EXPECT_TRUE(result.has_value());
 
         brilliant::snapcast::Base base{};
@@ -115,8 +118,8 @@ TEST_F(TestSnapClient, testSendWireChunk) {
         EXPECT_EQ(base.type, brilliant::snapcast::MessageType::WIRE_CHUNK);
 
         auto msg = brilliant::snapcast::read(
-            std::span(state.outData).subspan(sizeof(brilliant::snapcast::Base),
-                      base.size),
+            std::span(state.outData)
+                .subspan(sizeof(brilliant::snapcast::Base), base.size),
             base.type);
         std::visit(
             [&payload](const auto& m) {
@@ -141,14 +144,14 @@ TEST_F(TestSnapClient, testSendInsufficientBuffer) {
       [this] -> boost::asio::awaitable<void> {
         std::vector<std::byte> buffer(sizeof(brilliant::snapcast::Base) - 1);
 
-        auto result =
-            co_await snapClient.send(0, brilliant::snapcast::Time{}, std::span(buffer));
+        auto result = co_await snapClient.send(0, brilliant::snapcast::Time{},
+                                               std::span(buffer));
         EXPECT_FALSE(result.has_value());
         EXPECT_EQ(result.error().value(), boost::system::errc::no_buffer_space);
 
         buffer.resize(sizeof(brilliant::snapcast::Base) + 2);
-        result =
-            co_await snapClient.send(0, brilliant::snapcast::Time{}, std::span(buffer));
+        result = co_await snapClient.send(0, brilliant::snapcast::Time{},
+                                          std::span(buffer));
         EXPECT_FALSE(result.has_value());
         EXPECT_EQ(result.error().value(), boost::system::errc::no_buffer_space);
       },
@@ -169,8 +172,8 @@ TEST_F(TestSnapClient, testRead) {
             .id = 0,
             .refersTo = 3,
             .sent = brilliant::snapcast::Time{.sec = 1, .usec = 2},
-            .received =
-                brilliant::snapcast::Time{},  // received gets set by the function
+            .received = brilliant::snapcast::Time{},  // received gets set by
+                                                      // the function
             .size = sizeof(brilliant::snapcast::Time)};
         const brilliant::snapcast::Time time{.sec = 12, .usec = 34};
 
@@ -179,7 +182,8 @@ TEST_F(TestSnapClient, testRead) {
         brilliant::snapcast::write(std::span(state.inData), base);
         brilliant::snapcast::write(
             std::span(state.inData)
-                .subspan(sizeof(brilliant::snapcast::Base), sizeof(brilliant::snapcast::Time)),
+                .subspan(sizeof(brilliant::snapcast::Base),
+                         sizeof(brilliant::snapcast::Time)),
             time);
 
         constexpr auto bufSize = 4096;
@@ -215,9 +219,8 @@ TEST_F(TestSnapClient, testReadInsufficientBuffer) {
         base.type = brilliant::snapcast::MessageType::SERVER_SETTINGS;
         base.size = 35;
         state.inData.resize(1234);
-        // NOLINTEND        
+        // NOLINTEND
         brilliant::snapcast::write(std::span(state.inData), base);
-
 
         buffer.resize(sizeof(brilliant::snapcast::Base) + 2);
         result = co_await snapClient.read(std::span(buffer));

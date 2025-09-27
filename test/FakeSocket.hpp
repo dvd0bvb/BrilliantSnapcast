@@ -1,7 +1,7 @@
 #pragma once
 
-#include <boost/asio.hpp>
 #include <algorithm>
+#include <boost/asio.hpp>
 #include <span>
 
 struct SocketState {
@@ -18,9 +18,8 @@ class FakeSocket : public boost::asio::basic_socket<Protocol, Executor> {
 
     template <class Handler>
     void operator()(Handler h) {
-      boost::asio::dispatch(
-          self->get_executor(),
-          std::bind(std::move(h), self->state->ec));
+      boost::asio::dispatch(self->get_executor(),
+                            std::bind(std::move(h), self->state->ec));
     }
 
     FakeSocket* self;
@@ -34,10 +33,10 @@ class FakeSocket : public boost::asio::basic_socket<Protocol, Executor> {
       const auto bufSize = boost::asio::buffer_size(buffer);
       auto dataSpan = std::span(self->state->inData).first(bufSize);
       boost::asio::buffer_copy(
-          buffer,
-          boost::asio::buffer(dataSpan.data(), dataSpan.size()));
-      std::ranges::rotate(self->state->inData,
-                  self->state->inData.begin() + static_cast<std::int32_t>(bufSize));
+          buffer, boost::asio::buffer(dataSpan.data(), dataSpan.size()));
+      std::ranges::rotate(
+          self->state->inData,
+          self->state->inData.begin() + static_cast<std::int32_t>(bufSize));
       boost::asio::dispatch(self->get_executor(),
                             std::bind(std::move(h), self->state->ec, bufSize));
     }

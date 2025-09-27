@@ -1,11 +1,12 @@
 
 #pragma once
 
+#include <boost/json.hpp>
+#include <boost/json/src.hpp>
 #include <chrono>
 #include <cstddef>
 #include <expected>
-#include <boost/json.hpp>
-#include <boost/json/src.hpp>
+
 #include "BrilliantSnapcast/BoostPmrWrapper.hpp"
 #include "BrilliantSnapcast/Message.hpp"
 #include "BrilliantSnapcast/MessageConv.hpp"
@@ -104,7 +105,8 @@ namespace brilliant::snapcast {
       }
 
       brilliant::snapcast::write(buffer.first(sizeof(Base)), base);
-      brilliant::snapcast::write(buffer.subspan(sizeof(Base), base.size), message);
+      brilliant::snapcast::write(buffer.subspan(sizeof(Base), base.size),
+                                 message);
       auto [ec, size] =
           co_await _tcpClient->write(buffer.first(sizeof(Base) + base.size));
       if (ec) {
@@ -242,7 +244,8 @@ namespace brilliant::snapcast {
 
       base.received.sec = static_cast<std::uint32_t>(nowSecs.count());
       base.received.usec = static_cast<std::uint32_t>((now - nowSecs).count());
-      co_return std::make_tuple(base, brilliant::snapcast::read(buffer, base.type));
+      co_return std::make_tuple(base,
+                                brilliant::snapcast::read(buffer, base.type));
     }
 
   private:

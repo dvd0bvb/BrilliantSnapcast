@@ -1,3 +1,4 @@
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -5,7 +6,6 @@
 #include <random>
 #include <ranges>
 
-#include "gmock/gmock.h"
 #include "BrilliantSnapcast/Message.hpp"
 #include "BrilliantSnapcast/MessageConv.hpp"
 #include "BrilliantSnapcast/MessageType.hpp"
@@ -34,12 +34,13 @@ TEST(TestMessageConv, testConvTime) {
 
 TEST(TestMessageConv, testConvBase) {
   std::array<std::byte, sizeof(brilliant::snapcast::Base)> buffer{};
-  brilliant::snapcast::Base base{.type = brilliant::snapcast::MessageType::SERVER_SETTINGS,
-                        .id = 4,
-                        .refersTo = 9,
-                        .sent = brilliant::snapcast::Time{.sec = 123, .usec = 456},
-                        .received = brilliant::snapcast::Time{.sec = 987, .usec = 654},
-                        .size = 41};
+  brilliant::snapcast::Base base{
+      .type = brilliant::snapcast::MessageType::SERVER_SETTINGS,
+      .id = 4,
+      .refersTo = 9,
+      .sent = brilliant::snapcast::Time{.sec = 123, .usec = 456},
+      .received = brilliant::snapcast::Time{.sec = 987, .usec = 654},
+      .size = 41};
 
   brilliant::snapcast::write(std::span(buffer), base);
 
@@ -74,7 +75,8 @@ TEST(TestMessageConv, testConvBase) {
 }
 
 TEST(TestMessageConv, testConvHello) {
-  brilliant::snapcast::Message message(brilliant::snapcast::Hello{"abcdefghijkl"});
+  brilliant::snapcast::Message message(
+      brilliant::snapcast::Hello{"abcdefghijkl"});
 
   std::array<std::byte, 16> buffer{};
   brilliant::snapcast::write(std::span(buffer), message);
@@ -92,7 +94,8 @@ TEST(TestMessageConv, testConvHello) {
             std::byte{'b'},  std::byte{'a'},  std::byte{'0'},  std::byte{'1'},
             std::byte{'2'},  std::byte{'3'}};
 
-  message = brilliant::snapcast::read(std::span(buffer), brilliant::snapcast::MessageType::HELLO);
+  message = brilliant::snapcast::read(std::span(buffer),
+                                      brilliant::snapcast::MessageType::HELLO);
 
   auto& msg = std::get<brilliant::snapcast::Hello>(message);
   EXPECT_EQ(msg.size, 10);
@@ -114,11 +117,14 @@ TEST(TestMessageConv, testConvWirechunk) {
     return static_cast<std::byte>(c);
   });
 
-  brilliant::snapcast::Message message = brilliant::snapcast::WireChunk(std::span(data));
-  buffer.resize(sizeof(brilliant::snapcast::Time) + sizeof(std::uint32_t) + size);
+  brilliant::snapcast::Message message =
+      brilliant::snapcast::WireChunk(std::span(data));
+  buffer.resize(sizeof(brilliant::snapcast::Time) + sizeof(std::uint32_t) +
+                size);
   brilliant::snapcast::write(std::span(buffer), message);
 
-  constexpr auto offset = sizeof(brilliant::snapcast::Time) + sizeof(std::uint32_t);
+  constexpr auto offset =
+      sizeof(brilliant::snapcast::Time) + sizeof(std::uint32_t);
   for (auto [expected, actual] : std::views::zip(
            std::vector{std::byte{0x00}, std::byte{0x00}, std::byte{0x00},
                        std::byte{0x00}, std::byte{0x00}, std::byte{0x00},
@@ -158,8 +164,8 @@ TEST(TestMessageConv, testConvCodecHeader) {
           std::byte{'i'}, std::byte{'n'}, std::byte{'g'}));
 
   message = brilliant::snapcast::CodecHeader{};
-  message = brilliant::snapcast::read(std::span(buffer),
-                             brilliant::snapcast::MessageType::CODEC_HEADER);
+  message = brilliant::snapcast::read(
+      std::span(buffer), brilliant::snapcast::MessageType::CODEC_HEADER);
 
   {
     auto& msg = std::get<brilliant::snapcast::CodecHeader>(message);
