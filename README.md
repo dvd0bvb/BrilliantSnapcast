@@ -69,6 +69,13 @@ boost::asio::co_spawn(context, [&context, &client, &snapClient, &serializer] -> 
 context.run();
 ```
 
+## Next Steps
+
+- Investigate abstractions for providing network latency based on sent and received Time messages.
+- Investigate abstractions for providing audio data including codec information and WireChunks, possibly providing an audio decoding pipeline and a way to access decoded chunks of data.
+- Get a clang build working in the github workflows. Unfortunately, libstdc++ does not support `std::expected` but libc++ does. So the cmake needs to be modified to build the tests with libc++ and gtest must be built with clang/libc++. This combination builds and the tests pass as can be seen by the MSAN build. This would fix the ASAN and TSAN workflows at the same time.
+- Support the MSVC workflow.
+
 ## Supporting the project
 
 If you have suggestions please feel free to open an issue or create a PR.
