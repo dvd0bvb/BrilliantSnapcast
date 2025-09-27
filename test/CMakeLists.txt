@@ -5,8 +5,10 @@ include(${CMAKE_SOURCE_DIR}/cmake/MsvcRuntime.cmake)
 set(TEST_TARGET ${PROJECT_NAME}_TEST)
 
 # TODO: add sources and dependencies here
-set(TEST_SOURCES test.cpp # source 1
-    # ...
+set(TEST_SOURCES 
+    TestTcpClient.cpp
+    TestMessageConv.cpp
+    TestSnapClient.cpp
 )
 set(TEST_DEPENDENCIES ${PROJECT_NAME} # dep 1
     # ...

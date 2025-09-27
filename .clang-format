@@ -6,7 +6,6 @@ Language: Cpp
 DerivePointerAlignment: false
 PointerAlignment: Left
 
-AllowOmittingNamespaceComments: false
 FixNamespaceComments: true
 NamespaceIndentation: All
 

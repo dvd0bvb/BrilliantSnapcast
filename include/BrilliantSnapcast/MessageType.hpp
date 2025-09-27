@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace snapcastpp {
+namespace brilliant::snapcast {
 
 enum class MessageType : std::uint16_t {
   BASE = 0,
@@ -15,4 +15,4 @@ enum class MessageType : std::uint16_t {
   ERROR
 };
 
-}  // namespace snapcastpp
+}  // namespace brilliant::snapcast

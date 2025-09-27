@@ -7,7 +7,7 @@ endif()
 
 # PROJECT_NAME is already defined by cmake after a project() call
 # TODO: set the project name and cxx version
-set(THIS_PROJECT_NAME "libsnapcastpp")
+set(THIS_PROJECT_NAME "BrilliantSnapcast")
 set(THIS_CXX_VERSION cxx_std_23)
 
 project(${THIS_PROJECT_NAME}

@@ -1,65 +1,78 @@
-# BrilliantCMake 
-[![Multiplatform Tests](https://github.com/dvd0bvb/BrilliantCMake/actions/workflows/cmake-multi-platform.yml/badge.svg)](https://github.com/dvd0bvb/BrilliantCMake/actions/workflows/cmake-multi-platform.yml) [![Asan](https://github.com/dvd0bvb/BrilliantCMake/actions/workflows/asan.yml/badge.svg)](https://github.com/dvd0bvb/BrilliantCMake/actions/workflows/asan.yml) [![Msan](https://github.com/dvd0bvb/BrilliantCMake/actions/workflows/msan.yml/badge.svg)](https://github.com/dvd0bvb/BrilliantCMake/actions/workflows/asan.yml) [![Tsan](https://github.com/dvd0bvb/BrilliantCMake/actions/workflows/tsan.yml/badge.svg)](https://github.com/dvd0bvb/BrilliantCMake/actions/workflows/tsan.yml) 
-[![clang-format Check](https://github.com/dvd0bvb/BrilliantCMake/actions/workflows/clang-format-check.yml/badge.svg)](https://github.com/dvd0bvb/BrilliantCMake/actions/workflows/clang-format-check.yml) [![clang-tidy Check](https://github.com/dvd0bvb/BrilliantCMake/actions/workflows/clang-tidy-check.yml/badge.svg)](https://github.com/dvd0bvb/BrilliantCMake/actions/workflows/clang-tidy-check.yml) [![cmake-format Check](https://github.com/dvd0bvb/BrilliantCMake/actions/workflows/cmake-format-check.yml/badge.svg)](https://github.com/dvd0bvb/BrilliantCMake/actions/workflows/cmake-format-check.yml)
-[![coverage](img/coverage.svg)](https://dvd0bvb.github.io/BrilliantCMake) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) <a href="https://www.buymeacoffee.com/dvd0bvb"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=dvd0bvb&button_colour=deddda&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=FFDD00" height="21px"/></a>
+# BrilliantSnapcast 
+[![Multiplatform Tests](https://github.com/dvd0bvb/snapcastpp/actions/workflows/cmake-multi-platform.yml/badge.svg)](https://github.com/dvd0bvb/snapcastpp/actions/workflows/cmake-multi-platform.yml) [![Asan](https://github.com/dvd0bvb/snapcastpp/actions/workflows/asan.yml/badge.svg)](https://github.com/dvd0bvb/snapcastpp/actions/workflows/asan.yml) [![Msan](https://github.com/dvd0bvb/snapcastpp/actions/workflows/msan.yml/badge.svg)](https://github.com/dvd0bvb/snapcastpp/actions/workflows/asan.yml) [![Tsan](https://github.com/dvd0bvb/snapcastpp/actions/workflows/tsan.yml/badge.svg)](https://github.com/dvd0bvb/snapcastpp/actions/workflows/tsan.yml) 
+[![clang-format Check](https://github.com/dvd0bvb/snapcastpp/actions/workflows/clang-format-check.yml/badge.svg)](https://github.com/dvd0bvb/snapcastpp/actions/workflows/clang-format-check.yml) [![clang-tidy Check](https://github.com/dvd0bvb/snapcastpp/actions/workflows/clang-tidy-check.yml/badge.svg)](https://github.com/dvd0bvb/snapcastpp/actions/workflows/clang-tidy-check.yml) [![cmake-format Check](https://github.com/dvd0bvb/snapcastpp/actions/workflows/cmake-format-check.yml/badge.svg)](https://github.com/dvd0bvb/snapcastpp/actions/workflows/cmake-format-check.yml)
+[![coverage](img/coverage.svg)](https://dvd0bvb.github.io/snapcastpp) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) <a href="https://www.buymeacoffee.com/dvd0bvb"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=dvd0bvb&button_colour=deddda&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=FFDD00" height="21px"/></a>
 
-## A CMake project template
-This is a CMake project template aimed at new C++ projects. It is rather opinionated - it is expected that there is only one artifact being produced by the project, ie, only one (possibly header only) library or executable. It is also expected that tests will be written using the Google Test framework.
+## A Snapcast Client Library
 
-For these small concessions you get:
-- Test detection and running using CTest
-- Test coverage checks using lcov
-- Documentation generation using doxygen
-- All the analyzers
-  - Address sanitizer
-  - UB sanitizer
-  - Leak sanitizer
-  - Memory sanitizer
-  - Thread sanitizer
-  - clang-tidy
-- C++ code formatting using clang-format
-- CMake formatting using cmake-format
-- All of this running in Github workflows with fancy badges for your documentation
+BrilliantSnapcast is a header only library aimed at providing utilities for creating a snapcast client targeting embedded devices. The goal of this project is to provide an intuitive interface for communicating with a snapcast server by utilizing modern C++ and providing mechanisms to control dynamic memory allocations. 
 
-## Creating a new project from this repo
-1. Get the template
+### Modern C++
 
-    Create a new project from the template using the "Use this template" button in the top of the repo page. You can find more detailed instructions [here](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template). 
+BrilliantSnapcast implements network calls as C++ coroutines, using Boost.Asio under the hood. This eliminates the need to start multiple threads on platforms with limited resources. Snapcast messages are returned to callers as a variant containing one of the different kinds of snapcast messages.
 
-    You can also use the github CLI with the following command `gh repo create my-new-project --template dvd0bvb/BrilliantCMake --private --clone`.
+### Full Control
 
-2. Set the project name
+This library allows users to fully control dynamic memory allocations. A `std::pmr::memory_resource` is required to be provided to classes which utilize dynamic memory allocation. This mainly applies to allocations done by the Boost.Asio library for async handlers and Boost.Json object construction for SnapClient::sendHello(). For convenience, the memory_resource provided to a TcpClient instance can be utilized by SnapClient if no other memory_resource is provided to the SnapClient constructor.
 
-    Once you have the template, edit the top level CMakeLists.txt file to set the `THIS_PROJECT_NAME` variable. This controls the name of the build targets that are generated, more information is given below.
+Network calls utilize a user provided buffer, passed to read and write calls as a `std::span<std::byte>` instance. On a read operation, the provided buffers hold data read from the socket. Several of the Message types contain views into the buffer to avoid making additional copies of the data. BrilliantSnapcast will detect if the buffer span is not long enough to store data for a read or write operation and return an appropriate error_code.
 
-3. Rename the include directory
+To support embedded environments, no exceptions are thrown from any functions provided by BrilliantSnapcast. Results of calls are either a `boost::system::error_code` or a `std::expected<ResultType, boost::system::error_code>`.
 
-    Rename the include/project directory to include/$THIS_PROJECT_NAME. 
+BrilliantSnapcast does not provide name resolution at this time as `boost::asio::ip::tcp::resolver` stores IP address results as `std::string`s with no way to control allocation. If name resolution is desired, resolution and connection can be performed before passing the socket to a TcpClient instance.
 
-4. Edit the .project-config.yml file
+### Example
 
-    Change the values of the options in .project-config.yml to match your desired configuration. The project-name field should match `THIS_PROJECT_NAME`. This config file affects CMake commands called from github actions. 
+```c++
+boost::asio::io_context context;
+boost::asio::ip::tcp::socket socket(context);
+brilliant::snapcast::TcpClient client(std::move(socket), std::pmr::get_default_resource());
+brilliant::snapcast::SnapClient snapClient(client);
+boost::json::serializer serializer;
 
-5. Update badge urls
+boost::asio::co_spawn(context, [&context, &client, &snapClient, &serializer] -> boost::asio::awaitable<void> {
+    std::array<std::byte, 4096> buffer;
+        
+    co_await client.connect("127.0.0.1", 1704);
 
-    This readme provides examples of badges generated by GitHub workflows supported by this template. Badge urls should be updated accordingly. Normally this just means replacing https://github.com/dvd0bvb/BrilliantCMake/ in the urls with the url of your repo.
+    MyUtilProvider utilProvider; // MyUtilProvider implements the brilliant::snapcast::UtilProvider interface
+    co_await snapClient.sendHello(utilProvider, serializer, std::span(buffer));
 
-    NOTE: Your github token requires read and write permissions to push changes for coverage badges and documentation.
+    // start a coroutine to periodically send Time messages
+    boost::asio::co_spawn(context, [&client, &snapClient] -> boost::asio::awaitable<void> {
+        using namespace std::chrono_literals;
 
-And that's it, you're done with setup. You may then move on to development. The CMakeLists.txt files in the src and test directories contain variables which you may use to list your sources and dependencies. You may edit cmake/Options.cmake so that your preferred artifact option is ON by default, eg: `set(BRILLIANT_CMAKE_BUILD_SHARED ... ON)` so you do not have to define it when you configure CMake. 
+        std::array<std::byte, sizeof(brilliant::snapcast::Base) + sizeof(brilliant::snapcast::Time)> buffer;
+        auto exec = co_await boost::asio::this_coro::executor;
+        boost::asio::steady_timer timer(exec);
 
-### The THIS_PROJECT_NAME variable
-The CMake variable `THIS_PROJECT_NAME` determines the names of targets generated by BrilliantCMake. The generated targets are as follows:
-| Target Name | Description | Example |
-| --- | --- | --- |
-| `${THIS_PROJECT_NAME}` | The main target | MyProject |
-| `${THIS_PROJECT_NAME}_TEST` | A target to build a test executable | MyProject_TEST |
-| `${THIS_PROJECT_NAME}_DOCS` | A target to generate documentation using doxygen | MyProject_DOCS |
+        while (client.isConnected()) {
+            // Time values are populated in the send() call
+            if (auto result = co_await snapClient.send(0, brilliant::snapcast::Time{}, std::span(buffer)); result.has_value()) {
+                const brilliant::snapcast::Time sentTime = result.value()
+                storeLastTimeSent(sentTime);
+                time.expires_after(1s);
+                co_await timer.async_wait(boost::asio::use_awaitable);
+            } else {
+                handleError(result.error());
+            }            
+        }
+    }, boost::asio::detached);
 
-The `${THIS_PROJECT_NAME}_DOCS` target is not included in CMake's all target and so must be called explicitly. 
+    // main message handling loop
+    while (client.isConnected()) {
+        auto result = co_await snapClient.read(std::span(buffer));
+        result.and_then(&handleMessage).or_else(&handleError);
+    }
+}, boost::asio::detached);
+
+context.run();
+```
 
 ## Supporting the project
 
 If you have suggestions please feel free to open an issue or create a PR.
 
 You can support me directly via Buy Me a Coffee [here](https://www.buymeacoffee.com/dvd0bvb).
+
+This project was seeded using [BrilliantCMake](https://www.github.com/dvd0bvb/BrilliantCMake).

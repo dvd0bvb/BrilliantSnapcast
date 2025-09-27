@@ -11,4 +11,8 @@ set_compiler_flags(${PROJECT_NAME} INTERFACE)
 # TODO: add dependencies find_package(NAME REQUIRED [options]) ... find other
 # packages
 
+find_package(Boost REQUIRED)
+
 # target_link_libraries( ${MAIN_TARGET} PRIVATE dep 1 dep 2 ... )
+
+target_link_libraries(${MAIN_TARGET} Boost::boost)
