@@ -10,8 +10,7 @@ set(TEST_SOURCES
     TestMessageConv.cpp
     TestSnapClient.cpp
 )
-set(TEST_DEPENDENCIES ${PROJECT_NAME} # dep 1
-    # ...
+set(TEST_DEPENDENCIES ${PROJECT_NAME} Boost::boost
 )
 
 add_executable(${TEST_TARGET} ${TEST_SOURCES})
@@ -25,7 +24,7 @@ set_sanitizer_options(${TEST_TARGET})
 set_msvc_runtime(${TEST_TARGET})
 
 find_package(GTest REQUIRED)
-# TODO: Add other find_package calls here
+find_package(Boost REQUIRED)
 
 target_link_libraries(
   ${TEST_TARGET} PRIVATE GTest::gmock GTest::gtest GTest::gtest_main
