@@ -64,7 +64,7 @@ runs:
       run: > 
         cmake --build build 
         --config ${{ inputs.build-type }} 
-        --target ${{ steps.constants.outputs.project-name }}_TEST
+        --target all
 
     - name: Test
       working-directory: ${{ github.workspace }}/build
