@@ -51,7 +51,7 @@ boost::asio::co_spawn(context, [&context, &client, &snapClient, &serializer] -> 
             if (auto result = co_await snapClient.send(0, brilliant::snapcast::Time{}, std::span(buffer)); result.has_value()) {
                 const brilliant::snapcast::Time sentTime = result.value()
                 storeLastTimeSent(sentTime);
-                time.expires_after(1s);
+                timer.expires_after(1s);
                 co_await timer.async_wait(boost::asio::use_awaitable);
             } else {
                 handleError(result.error());
