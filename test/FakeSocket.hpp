@@ -1,14 +1,8 @@
 #pragma once
 
-#include <algorithm>
 #include <boost/asio.hpp>
-#include <boost/asio/any_io_executor.hpp>
-#include <boost/asio/async_result.hpp>
-#include <boost/asio/basic_socket.hpp>
-#include <boost/asio/buffer.hpp>
-#include <boost/asio/dispatch.hpp>
-#include <boost/beast/_experimental/test/stream.hpp>
-#include <boost/system/detail/error_code.hpp>
+#include <algorithm>
+#include <span>
 
 struct SocketState {
   std::vector<std::byte> inData;
@@ -38,9 +32,10 @@ class FakeSocket : public boost::asio::basic_socket<Protocol, Executor> {
     template <class Handler, class Buffer>
     void operator()(Handler h, const Buffer& buffer) {
       const auto bufSize = boost::asio::buffer_size(buffer);
+      auto dataSpan = std::span(self->state->inData).first(bufSize);
       boost::asio::buffer_copy(
           buffer,
-          boost::asio::buffer(std::span(self->state->inData).first(bufSize)));
+          boost::asio::buffer(dataSpan.data(), dataSpan.size()));
       std::ranges::rotate(self->state->inData,
                   self->state->inData.begin() + static_cast<std::int32_t>(bufSize));
       boost::asio::dispatch(self->get_executor(),

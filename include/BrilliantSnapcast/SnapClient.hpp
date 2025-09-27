@@ -1,20 +1,14 @@
 
 #pragma once
 
-#include <boost/asio.hpp>
-#include <boost/json.hpp>
-#include <boost/json/src.hpp>
 #include <chrono>
 #include <cstddef>
 #include <expected>
-#include <memory_resource>
-#include <type_traits>
-#include <utility>
-
+#include <boost/json.hpp>
+#include <boost/json/src.hpp>
 #include "BrilliantSnapcast/BoostPmrWrapper.hpp"
 #include "BrilliantSnapcast/Message.hpp"
 #include "BrilliantSnapcast/MessageConv.hpp"
-#include "BrilliantSnapcast/MessageType.hpp"
 #include "BrilliantSnapcast/TcpClient.hpp"
 #include "BrilliantSnapcast/UtilProvider.hpp"
 

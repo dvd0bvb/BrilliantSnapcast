@@ -18,6 +18,7 @@ add_executable(${TEST_TARGET} ${TEST_SOURCES})
 target_include_directories(${TEST_TARGET} PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
 target_compile_features(${TEST_TARGET} PRIVATE ${THIS_CXX_VERSION})
+target_compile_definitions(${TEST_TARGET} PRIVATE BOOST_ERROR_CODE_HEADER_ONLY)
 
 set_compiler_flags(${TEST_TARGET} PRIVATE)
 set_sanitizer_options(${TEST_TARGET})
