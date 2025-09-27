@@ -42,7 +42,12 @@ runs:
         dynamic-msvc-runtime: "true"
         shell-name: ${{ inputs.shell-name }}
         with-msan: ${{ inputs.building-msan }}
-    
+
+    - name: Install boost
+      uses: MarkusJx/install-boost@v2
+      with: 
+        boost_version: 1.83.0
+
     - uses: ./.github/actions/config-cmake
       with: 
         cpp-compiler: ${{ inputs.cpp-compiler }}

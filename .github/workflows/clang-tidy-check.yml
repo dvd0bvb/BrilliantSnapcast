@@ -2,9 +2,9 @@ name: clang-tidy check
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "master" ]
   pull_request:
-    branches: [ main ]
+    branches: [ "master" ]
 
 jobs:
   setup-and-tidy:
