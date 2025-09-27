@@ -73,7 +73,7 @@ context.run();
 
 - Investigate abstractions for providing network latency based on sent and received Time messages.
 - Investigate abstractions for providing audio data including codec information and WireChunks, possibly providing an audio decoding pipeline and a way to access decoded chunks of data.
-- Get a clang build working in the github workflows. Unfortunately, libstdc++ does not support `std::expected` but libc++ does. So the cmake needs to be modified to build the tests with libc++ and gtest must be built with clang/libc++. This combination builds and the tests pass as can be seen by the MSAN build. This would fix the ASAN and TSAN workflows at the same time.
+- Support the clang github workflows. Unfortunately, libstdc++ (clang's default standard library implementation) does not support `std::expected` which causes workflows using clang to fail. However, libc++ does support it so the cmake needs to be modified to build the tests with libc++ and gtest must be built with clang/libc++ as well. This combination builds and the tests pass as can be seen by the MSAN workflow. This would fix the ASAN and TSAN workflows at the same time.
 - Support the MSVC workflow.
 
 ## Supporting the project
