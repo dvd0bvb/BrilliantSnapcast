@@ -1,0 +1,49 @@
+name: Cppcheck
+
+on:
+  push:
+    branches: [ "main" ]
+    paths-ignore: 
+      - .github/badges/**
+      - README.md
+  pull_request:
+    branches: [ "main" ]
+    paths-ignore: 
+      - .github/badges/**
+      - README.md
+
+jobs:
+  cppcheck:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v4
+    - name: cppcheck
+      uses: deep5050/cppcheck-action@main
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Update badge
+      run: |
+        COLORS_JSON=./.github/badges/colors.json
+        OUT_FILE=./.github/badges/cppcheck.json
+        NUM_ERRORS=$(grep -c "error" cppcheck_report.txt)
+        
+        if [[ $NUM_ERRORS != "0" ]]; then
+          COLOR_NAME=critical
+          MESSAGE="Errors: $NUM_ERRORS"
+        else
+          COLOR_NAME=good
+          MESSAGE="No Errors"
+        fi
+        COLOR="$(jq .$COLOR_NAME $COLORS_JSON)"
+
+        echo "\".color = $COLOR | .message = \"$MESSAGE\"\" $OUT_FILE"
+        jq ".color = $COLOR | .message = \"$MESSAGE\"" $OUT_FILE > json.tmp
+        mv json.tmp $OUT_FILE
+        rm cppcheck_report.txt
+
+    - name: Push cppcheck json
+      uses: mikeal/publish-to-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        BRANCH_NAME: 'main'
