@@ -1,9 +1,11 @@
 #pragma once
 
 #include <boost/asio.hpp>
+#include <expected>
 #include <memory_resource>
 #include <span>
 #include <string_view>
+#include <system_error>
 
 namespace brilliant::snapcast {
 
@@ -13,7 +15,7 @@ namespace brilliant::snapcast {
    * @tparam Socket The socket type
    */
   template <class Socket>
-  class TcpClient {
+  class TcpConnection {
   public:
     /// Type alias for the socket type
     using socket_type = Socket;
@@ -27,14 +29,14 @@ namespace brilliant::snapcast {
      * @param socket The network socket
      * @param mr A pointer to the memory resource
      */
-    TcpClient(Socket socket, std::pmr::memory_resource* mr)
+    TcpConnection(Socket socket, std::pmr::memory_resource* mr)
         : _socket(std::move(socket)), _alloc(mr) {}
 
     /**
      * @brief Destroy the Tcp Client object. If the socket is open
      * it will be closed on destruction.
      */
-    ~TcpClient() {
+    ~TcpConnection() {
       if (isConnected()) {
         disconnect();
       }
@@ -44,22 +46,22 @@ namespace brilliant::snapcast {
      * @brief Deleted copy constructor
      *
      */
-    TcpClient(const TcpClient&) = delete;
+    TcpConnection(const TcpConnection&) = delete;
 
     /**
      * @brief Deleted copy assignment operator
      *
-     * @return TcpClient&
+     * @return TcpConnection&
      */
-    auto operator=(const TcpClient&) -> TcpClient& = delete;
+    auto operator=(const TcpConnection&) -> TcpConnection& = delete;
 
     /**
      * @brief Move constructor
      *
      * @param other The object to move from
      */
-    TcpClient(TcpClient&& other) noexcept
-        : TcpClient(std::move(other._socket), other._alloc.resource()) {}
+    TcpConnection(TcpConnection&& other) noexcept
+        : TcpConnection(std::move(other._socket), other._alloc.resource()) {}
 
     /**
      * @brief Move assignment operator
@@ -67,9 +69,10 @@ namespace brilliant::snapcast {
      * @param other The object to move from
      * @return A reference to this object
      */
-    auto operator=(TcpClient&& other) noexcept -> TcpClient& {
+    auto operator=(TcpConnection&& other) noexcept -> TcpConnection& {
       disconnect();
       _socket = std::move(other._socket);
+      return *this;
     }
 
     /**
@@ -79,29 +82,26 @@ namespace brilliant::snapcast {
      * @param port The port of the remote endpoint
      * @return An error_code. Empty if the operation was successful.
      */
-    auto connect(std::string_view ip, boost::asio::ip::port_type port)
-        -> boost::asio::awaitable<boost::system::error_code> {
+    auto connect(protocol::endpoint ep)
+        -> boost::asio::awaitable<std::error_code> {
       boost::system::error_code ec{};
-      // copy to string to guarantee trailing 0
-      std::pmr::string ipStr(ip.data(), ip.size(), _alloc);
-      auto address = boost::asio::ip::make_address(ipStr.c_str(), ec);
-      if (ec) {
-        co_return ec;
-      }
-
       auto allocatorBoundHandler =
           boost::asio::bind_allocator(_alloc, boost::asio::use_awaitable);
-      typename protocol::endpoint ep(address, port);
       std::tie(ec) = co_await _socket.async_connect(
           ep, boost::asio::as_tuple(allocatorBoundHandler));
-      co_return ec;
+      _socket.set_option(boost::asio::ip::tcp::no_delay(true));
+      co_return std::error_code(ec);
     }
 
     /**
      * @brief Disconnect from the server
      *
      */
-    void disconnect() { _socket.close(); }
+    void disconnect() { 
+      boost::system::error_code ec{};
+      // Avoid throwing
+      _socket.close(ec); 
+    }
 
     /**
      * @brief Check if the socket is open
@@ -111,7 +111,7 @@ namespace brilliant::snapcast {
     [[nodiscard]] auto isConnected() const -> bool { return _socket.is_open(); }
 
     /**
-     * @brief Read data into a buffer
+     * @brief Read data into a buffer from the stream
      *
      * @tparam Extent The extent of the buffer
      * @param buffer The buffer to read into
@@ -121,15 +121,19 @@ namespace brilliant::snapcast {
     template <std::size_t Extent>
     auto read(std::span<std::byte, Extent> buffer)
         -> boost::asio::awaitable<
-            std::tuple<boost::system::error_code, std::size_t>> {
+            std::expected<std::size_t, std::error_code>> {
       auto handler =
           boost::asio::bind_allocator(_alloc, boost::asio::use_awaitable);
-      return boost::asio::async_read(_socket, boost::asio::buffer(buffer),
+      auto [ec, read] = co_await boost::asio::async_read(_socket, boost::asio::buffer(buffer.data(), buffer.size()),
                                      boost::asio::as_tuple(handler));
+      if (ec) {
+        co_return std::unexpected(std::error_code(ec));
+      }
+      co_return read;
     }
 
     /**
-     * @brief Write
+     * @brief Write data from a buffer to the stream
      *
      * @tparam Extent
      * @param buffer
@@ -139,11 +143,15 @@ namespace brilliant::snapcast {
     template <std::size_t Extent>
     auto write(std::span<std::byte, Extent> buffer)
         -> boost::asio::awaitable<
-            std::tuple<boost::system::error_code, std::size_t>> {
+            std::expected<std::size_t, std::error_code>> {
       auto handler =
           boost::asio::bind_allocator(_alloc, boost::asio::use_awaitable);
-      return boost::asio::async_write(_socket, boost::asio::buffer(buffer),
+      auto [ec, written] = co_await boost::asio::async_write(_socket, boost::asio::buffer(buffer.data(), buffer.size()),
                                       boost::asio::as_tuple(handler));
+      if (ec) {
+        co_return std::unexpected(std::error_code(ec));
+      }
+      co_return written;
     }
 
     /**

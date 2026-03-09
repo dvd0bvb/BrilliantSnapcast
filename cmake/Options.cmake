@@ -3,7 +3,7 @@ option(BRILLIANT_CMAKE_BUILD_EXECUTABLE "Build the project as an executable"
 )
 option(BRILLIANT_CMAKE_BUILD_SHARED "Build project as a shared library" OFF)
 option(BRILLIANT_CMAKE_BUILD_HEADER_ONLY
-       "Build project as a header only library" OFF
+       "Build project as a header only library" ON
 )
 option(BRILLIANT_CMAKE_CODE_COVERAGE "Build project with code coverage" OFF)
 

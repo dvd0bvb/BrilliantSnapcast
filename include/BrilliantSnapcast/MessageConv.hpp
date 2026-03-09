@@ -1,12 +1,12 @@
 #pragma once
 
+#include "BrilliantSnapcast/MessageType.hpp"
+#include <BrilliantSnapcast/Message.hpp>
 #include <concepts>
 #include <cstring>
 #include <span>
 #include <type_traits>
 #include <utility>
-
-#include "BrilliantSnapcast/Message.hpp"
 
 namespace brilliant::snapcast {
 
@@ -20,16 +20,24 @@ namespace brilliant::snapcast {
 
   template <std::size_t Extent>
   void read(std::span<std::byte, Extent> buffer, Base& base) {
-    static_assert(Extent == std::dynamic_extent || Extent >= sizeof(Base));
+    static_assert(Extent == std::dynamic_extent || Extent >= BASE_SIZE_BYTES);
 
     auto data = buffer.data();
-    std::memcpy(&base, data, sizeof(Base));
+    std::memcpy(&base.type, data, sizeof(MessageType));
+    data += sizeof(MessageType);
+    std::memcpy(&base.id, data, sizeof(base.id));
+    data += sizeof(base.id);
+    std::memcpy(&base.refersTo, data, sizeof(base.refersTo));
+    data += sizeof(base.refersTo);
+    std::memcpy(&base.sent, data, sizeof(Time));
+    data += sizeof(Time);
+    std::memcpy(&base.received, data, sizeof(Time));
+    data += sizeof(Time);
+    std::memcpy(&base.size, data, sizeof(base.size));
   }
 
-  template <class T, std::size_t Extent>
-  void read(std::span<std::byte, Extent> buffer, T& t)
-    requires std::derived_from<T, JsonMessage>
-  {
+  template <std::size_t Extent>
+  void read(std::span<std::byte, Extent> buffer, JsonMessage& t) {
     std::memcpy(&t.size, buffer.data(), sizeof(t.size));
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     t.payload = reinterpret_cast<char*>(buffer.data() + sizeof(t.size));
@@ -96,7 +104,6 @@ namespace brilliant::snapcast {
       error.errorMessage = reinterpret_cast<char*>(data);
       return error;
     }
-    case MessageType::BASE:
     default:
       std::unreachable();
     }
@@ -111,8 +118,20 @@ namespace brilliant::snapcast {
 
   template <std::size_t Extent>
   void write(std::span<std::byte, Extent> buffer, const Base& base) {
-    static_assert(Extent == std::dynamic_extent || Extent >= sizeof(Time));
-    std::memcpy(buffer.data(), &base, sizeof(Base));
+    static_assert(Extent == std::dynamic_extent || Extent >= BASE_SIZE_BYTES);
+
+    auto data = buffer.data();
+    std::memcpy(data, &base.type, sizeof(MessageType));
+    data += sizeof(MessageType);
+    std::memcpy(data, &base.id, sizeof(base.id));
+    data += sizeof(base.id);
+    std::memcpy(data, &base.refersTo, sizeof(base.refersTo));
+    data += sizeof(base.refersTo);
+    std::memcpy(data, &base.sent, sizeof(Time));
+    data += sizeof(Time);
+    std::memcpy(data, &base.received, sizeof(Time));
+    data += sizeof(Time);
+    std::memcpy(data, &base.size, sizeof(base.size));
   }
 
   template <std::size_t Extent>

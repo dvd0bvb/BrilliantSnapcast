@@ -6,13 +6,35 @@ target_include_directories(
   ${PROJECT_NAME} INTERFACE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
                             $<INSTALL_INTERFACE:include>)
 
-set_compiler_flags(${PROJECT_NAME} INTERFACE)
+find_package(Boost REQUIRED COMPONENTS log log_setup)
 
-# TODO: add dependencies find_package(NAME REQUIRED [options]) ... find other
-# packages
+target_link_libraries(${PROJECT_NAME} INTERFACE Boost::boost INTERFACE Boost::log INTERFACE Boost::log_setup)
 
-find_package(Boost REQUIRED)
+# Installation commands 
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+    "${PROJECT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+    VERSION 0.0.1
+    COMPATIBILITY AnyNewerVersion
+)
 
-# target_link_libraries( ${MAIN_TARGET} PRIVATE dep 1 dep 2 ... )
+install(TARGETS ${PROJECT_NAME}
+    EXPORT ${PROJECT_NAME}Targets
+    LIBRARY DESTINATION lib COMPONENT Runtime
+    ARCHIVE DESTINATION lib COMPONENT Development
+    RUNTIME DESTINATION bin COMPONENT Runtime
+    PUBLIC_HEADER DESTINATION include COMPONENT Development
+    BUNDLE DESTINATION bin COMPONENT Runtime
+)
 
-target_link_libraries(${MAIN_TARGET} Boost::boost)
+configure_package_config_file(
+    "${PROJECT_SOURCE_DIR}/cmake/Config.cmake.in"
+    "${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+    INSTALL_DESTINATION lib/cmake/${PROJECT_NAME}
+)
+
+install(EXPORT ${PROJECT_NAME}Targets DESTINATION lib/cmake/${PROJECT_NAME} NAMESPACE ${PROJECT_NAME}::)
+install(FILES "${PROJECT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+              "${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+        DESTINATION lib/cmake/${PROJECT_NAME})
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/ DESTINATION include)

@@ -1,14 +1,16 @@
+#include "ByteLiteral.hpp"
+#include "gmock/gmock.h"
+#include <BrilliantSnapcast/Message.hpp>
+#include <BrilliantSnapcast/MessageConv.hpp>
+#include <BrilliantSnapcast/MessageType.hpp>
+#include <algorithm>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-
-#include <algorithm>
 #include <limits>
 #include <random>
 #include <ranges>
 
-#include "BrilliantSnapcast/Message.hpp"
-#include "BrilliantSnapcast/MessageConv.hpp"
-#include "BrilliantSnapcast/MessageType.hpp"
+using namespace byte_literal;
 
 TEST(TestMessageConv, testConvTime) {
   brilliant::snapcast::Time time{.sec = 0x12305678, .usec = 0xdeadbeef};
@@ -16,10 +18,8 @@ TEST(TestMessageConv, testConvTime) {
   std::array<std::byte, sizeof(brilliant::snapcast::Time)> buffer{};
   brilliant::snapcast::write(std::span(buffer), time);
 
-  EXPECT_THAT(buffer, testing::ElementsAre(std::byte{0x78}, std::byte{0x56},
-                                           std::byte{0x30}, std::byte{0x12},
-                                           std::byte{0xef}, std::byte{0xbe},
-                                           std::byte{0xad}, std::byte{0xde}));
+  EXPECT_THAT(buffer, testing::ElementsAre(0x78_b, 0x56_b, 0x30_b, 0x12_b,
+                                           0xef_b, 0xbe_b, 0xad_b, 0xde_b));
 
   buffer = std::array<std::byte, sizeof(brilliant::snapcast::Time)>{
       static_cast<std::byte>(0x98), static_cast<std::byte>(0x43),
@@ -47,21 +47,15 @@ TEST(TestMessageConv, testConvBase) {
   EXPECT_THAT(
       buffer,
       testing::ElementsAre(
-          std::byte{0x03}, std::byte{0x00}, std::byte{0x04}, std::byte{0x00},
-          std::byte{0x09}, std::byte{0x00}, std::byte{0x7b}, std::byte{0x00},
-          std::byte{0x00}, std::byte{0x00}, std::byte{0xc8}, std::byte{0x01},
-          std::byte{0x00}, std::byte{0x00}, std::byte{0xdb}, std::byte{0x03},
-          std::byte{0x00}, std::byte{0x00}, std::byte{0x8e}, std::byte{0x02},
-          std::byte{0x00}, std::byte{0x00}, std::byte{0x29}, std::byte{0x00},
-          std::byte{0x00}, std::byte{0x00}));
+          0x03_b, 0x00_b, 0x04_b, 0x00_b, 0x09_b, 0x00_b, 0x7b_b, 0x00_b,
+          0x00_b, 0x00_b, 0xc8_b, 0x01_b, 0x00_b, 0x00_b, 0xdb_b, 0x03_b,
+          0x00_b, 0x00_b, 0x8e_b, 0x02_b, 0x00_b, 0x00_b, 0x29_b, 0x00_b,
+          0x00_b, 0x00_b, 0x00_b, 0x00_b));  // has 2 extra bytes for padding
 
-  buffer = {std::byte{0x04}, std::byte{0x00}, std::byte{0x12}, std::byte{0x03},
-            std::byte{0x54}, std::byte{0x06}, std::byte{0x67}, std::byte{0x45},
-            std::byte{0x23}, std::byte{0x00}, std::byte{0xcd}, std::byte{0xab},
-            std::byte{0x00}, std::byte{0x00}, std::byte{0x89}, std::byte{0x67},
-            std::byte{0x45}, std::byte{0x00}, std::byte{0x21}, std::byte{0x43},
-            std::byte{0x00}, std::byte{0x00}, std::byte{0x54}, std::byte{0x76},
-            std::byte{0x00}, std::byte{0x00}};
+  buffer = {0x04_b, 0x00_b, 0x12_b, 0x03_b, 0x54_b, 0x06_b, 0x67_b,
+            0x45_b, 0x23_b, 0x00_b, 0xcd_b, 0xab_b, 0x00_b, 0x00_b,
+            0x89_b, 0x67_b, 0x45_b, 0x00_b, 0x21_b, 0x43_b, 0x00_b,
+            0x00_b, 0x54_b, 0x76_b, 0x00_b, 0x00_b};
   brilliant::snapcast::read(std::span(buffer), base);
 
   EXPECT_EQ(base.type, brilliant::snapcast::MessageType::TIME);
@@ -81,18 +75,13 @@ TEST(TestMessageConv, testConvHello) {
   std::array<std::byte, 16> buffer{};
   brilliant::snapcast::write(std::span(buffer), message);
 
-  EXPECT_THAT(
-      buffer,
-      testing::ElementsAre(
-          std::byte{0x0c}, std::byte{0x00}, std::byte{0x00}, std::byte{0x00},
-          std::byte{'a'}, std::byte{'b'}, std::byte{'c'}, std::byte{'d'},
-          std::byte{'e'}, std::byte{'f'}, std::byte{'g'}, std::byte{'h'},
-          std::byte{'i'}, std::byte{'j'}, std::byte{'k'}, std::byte{'l'}));
+  EXPECT_THAT(buffer, testing::ElementsAre(0x0c_b, 0x00_b, 0x00_b, 0x00_b,
+                                           0x61_b, 0x62_b, 0x63_b, 0x64_b,
+                                           0x65_b, 0x66_b, 0x67_b, 0x68_b,
+                                           0x69_b, 0x6a_b, 0x6b_b, 0x6c_b));
 
-  buffer = {std::byte{0x0a}, std::byte{0x00}, std::byte{0x00}, std::byte{0x00},
-            std::byte{'f'},  std::byte{'e'},  std::byte{'d'},  std::byte{'c'},
-            std::byte{'b'},  std::byte{'a'},  std::byte{'0'},  std::byte{'1'},
-            std::byte{'2'},  std::byte{'3'}};
+  buffer = {0x0a_b, 0x00_b, 0x00_b, 0x00_b, 0x66_b, 0x65_b, 0x64_b,
+            0x63_b, 0x62_b, 0x61_b, 0x30_b, 0x31_b, 0x32_b, 0x33_b};
 
   message = brilliant::snapcast::read(std::span(buffer),
                                       brilliant::snapcast::MessageType::HELLO);
@@ -126,10 +115,8 @@ TEST(TestMessageConv, testConvWirechunk) {
   constexpr auto offset =
       sizeof(brilliant::snapcast::Time) + sizeof(std::uint32_t);
   for (auto [expected, actual] : std::views::zip(
-           std::vector{std::byte{0x00}, std::byte{0x00}, std::byte{0x00},
-                       std::byte{0x00}, std::byte{0x00}, std::byte{0x00},
-                       std::byte{0x00}, std::byte{0x00}, std::byte{0x22},
-                       std::byte{0x00}, std::byte{0x00}, std::byte{0x00}},
+           std::vector{0x00_b, 0x00_b, 0x00_b, 0x00_b, 0x00_b, 0x00_b, 0x00_b,
+                       0x00_b, 0x22_b, 0x00_b, 0x00_b, 0x00_b},
            std::views::take(buffer, offset))) {
     EXPECT_EQ(expected, actual);
   }
@@ -154,14 +141,11 @@ TEST(TestMessageConv, testConvCodecHeader) {
                   msg.size);
   }
   brilliant::snapcast::write(std::span(buffer), message);
-  EXPECT_THAT(
-      buffer,
-      testing::ElementsAre(
-          std::byte{0x04}, std::byte{0x00}, std::byte{0x00}, std::byte{0x00},
-          std::byte{'t'}, std::byte{'e'}, std::byte{'s'}, std::byte{'t'},
-          std::byte{0x07}, std::byte{0x00}, std::byte{0x00}, std::byte{0x00},
-          std::byte{'t'}, std::byte{'e'}, std::byte{'s'}, std::byte{'t'},
-          std::byte{'i'}, std::byte{'n'}, std::byte{'g'}));
+  EXPECT_THAT(buffer,
+              testing::ElementsAre(0x04_b, 0x00_b, 0x00_b, 0x00_b, 0x74_b,
+                                   0x65_b, 0x73_b, 0x74_b, 0x07_b, 0x00_b,
+                                   0x00_b, 0x00_b, 0x74_b, 0x65_b, 0x73_b,
+                                   0x74_b, 0x69_b, 0x6e_b, 0x67_b));
 
   message = brilliant::snapcast::CodecHeader{};
   message = brilliant::snapcast::read(
@@ -175,5 +159,88 @@ TEST(TestMessageConv, testConvCodecHeader) {
     EXPECT_EQ(
         std::string_view(reinterpret_cast<const char*>(msg.payload), msg.size),
         "testing");
+  }
+}
+
+TEST(TestMessageConv, testConvServerSettings) {
+  constexpr std::string_view payload{"This is some data"};
+  brilliant::snapcast::Message message =
+      brilliant::snapcast::ServerSettings(payload);
+
+  std::array<std::byte, payload.size() + 4> buffer{};
+  brilliant::snapcast::write(std::span(buffer), message);
+
+  EXPECT_THAT(buffer,
+              testing::ElementsAre(
+                  0x11_b, 0x00_b, 0x00_b, 0x00_b, 0x54_b, 0x68_b, 0x69_b,
+                  0x73_b, 0x20_b, 0x69_b, 0x73_b, 0x20_b, 0x73_b, 0x6f_b,
+                  0x6d_b, 0x65_b, 0x20_b, 0x64_b, 0x61_b, 0x74_b, 0x61_b));
+
+  std::uint32_t size = 10;
+  constexpr std::string_view data{"ten bytes_"};
+  std::memcpy(buffer.data(), &size, sizeof(size));
+  std::memcpy(buffer.data() + sizeof(size), data.data(), data.size());
+
+  message = brilliant::snapcast::read(
+      std::span(buffer), brilliant::snapcast::MessageType::SERVER_SETTINGS);
+
+  auto& msg = std::get<brilliant::snapcast::ServerSettings>(message);
+  EXPECT_EQ(msg.size, size);
+  EXPECT_EQ(std::string_view(msg.payload, msg.size), data);
+}
+
+TEST(TestMessageConv, testConvClientInfoSettings) {
+  constexpr std::string_view payload{"This is a test"};
+  brilliant::snapcast::Message message =
+      brilliant::snapcast::ClientInfo(payload);
+
+  std::array<std::byte, payload.size() + 4> buffer{};
+  brilliant::snapcast::write(std::span(buffer), message);
+
+  EXPECT_THAT(buffer, testing::ElementsAre(
+                          0x0e_b, 0x00_b, 0x00_b, 0x00_b, 0x54_b, 0x68_b,
+                          0x69_b, 0x73_b, 0x20_b, 0x69_b, 0x73_b, 0x20_b,
+                          0x61_b, 0x20_b, 0x74_b, 0x65_b, 0x73_b, 0x74_b));
+
+  std::uint32_t size = 9;
+  constexpr std::string_view data{"ninebytes"};
+  std::memcpy(buffer.data(), &size, sizeof(size));
+  std::memcpy(buffer.data() + sizeof(size), data.data(), data.size());
+
+  message = brilliant::snapcast::read(
+      std::span(buffer), brilliant::snapcast::MessageType::CLIENT_INFO);
+
+  auto& msg = std::get<brilliant::snapcast::ClientInfo>(message);
+  EXPECT_EQ(msg.size, size);
+  EXPECT_EQ(std::string_view(msg.payload, msg.size), data);
+}
+
+TEST(TestMessageConv, testConvError) {
+  std::vector<std::byte> buffer(1024);
+
+  brilliant::snapcast::Message message = brilliant::snapcast::Error(
+      42, "ErrorString", "This is the error message");
+  brilliant::snapcast::write(std::span(buffer), message);
+  EXPECT_THAT(
+      std::span(buffer).subspan(0, 48),
+      testing::ElementsAre(
+          0x2a_b, 0x00_b, 0x00_b, 0x00_b, 0x0b_b, 0x00_b, 0x00_b, 0x00_b,
+          0x45_b, 0x72_b, 0x72_b, 0x6f_b, 0x72_b, 0x53_b, 0x74_b, 0x72_b,
+          0x69_b, 0x6e_b, 0x67_b, 0x19_b, 0x00_b, 0x00_b, 0x00_b, 0x54_b,
+          0x68_b, 0x69_b, 0x73_b, 0x20_b, 0x69_b, 0x73_b, 0x20_b, 0x74_b,
+          0x68_b, 0x65_b, 0x20_b, 0x65_b, 0x72_b, 0x72_b, 0x6f_b, 0x72_b,
+          0x20_b, 0x6d_b, 0x65_b, 0x73_b, 0x73_b, 0x61_b, 0x67_b, 0x65_b));
+
+  message = brilliant::snapcast::read(std::span(buffer),
+                                      brilliant::snapcast::MessageType::ERROR);
+
+  {
+    auto& msg = std::get<brilliant::snapcast::Error>(message);
+    EXPECT_EQ(msg.errorCode, 42);
+    EXPECT_EQ(msg.errorSize, 11);
+    EXPECT_EQ(std::string_view(msg.error, msg.errorSize), "ErrorString");
+    EXPECT_EQ(msg.errorMessageSize, 25);
+    EXPECT_EQ(std::string_view(msg.errorMessage, msg.errorMessageSize),
+              "This is the error message");
   }
 }

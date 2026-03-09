@@ -4,6 +4,12 @@
 
 namespace brilliant::snapcast {
 
+  // Enum size is based on message protocol specification
+  // NOLINTBEGIN(performance-enum-size)
+  /**
+   * @brief Enumeration of message types
+   *
+   */
   enum class MessageType : std::uint16_t {
     BASE = 0,
     CODEC_HEADER,
@@ -14,5 +20,6 @@ namespace brilliant::snapcast {
     CLIENT_INFO,
     ERROR
   };
+  // NOLINTEND(performance-enum-size)
 
 }  // namespace brilliant::snapcast

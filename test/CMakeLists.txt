@@ -6,12 +6,17 @@ set(TEST_TARGET ${PROJECT_NAME}_TEST)
 
 # TODO: add sources and dependencies here
 set(TEST_SOURCES 
-    TestTcpClient.cpp
+    TestTcpConnection.cpp
     TestMessageConv.cpp
-    TestSnapClient.cpp
+    TestSnapConnection.cpp
+    TestTimeProvider.cpp
+    TestDurationConversion.cpp
+    TestAudioDataDevice.cpp
+    TestDecoderFilter.cpp
+    TestRateCorrectionFilter.cpp
+    TestBitDepth.cpp
 )
-set(TEST_DEPENDENCIES ${PROJECT_NAME} Boost::boost
-)
+set(TEST_DEPENDENCIES ${PROJECT_NAME})
 
 add_executable(${TEST_TARGET} ${TEST_SOURCES})
 
@@ -25,7 +30,6 @@ set_sanitizer_options(${TEST_TARGET})
 set_msvc_runtime(${TEST_TARGET})
 
 find_package(GTest REQUIRED)
-find_package(Boost REQUIRED)
 
 target_link_libraries(
   ${TEST_TARGET} PRIVATE GTest::gmock GTest::gtest GTest::gtest_main

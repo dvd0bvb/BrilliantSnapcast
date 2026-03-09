@@ -1,15 +1,14 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <span>
 #include <string_view>
 #include <variant>
 
-#include "BrilliantSnapcast/MessageType.hpp"
+#include <BrilliantSnapcast/MessageType.hpp>
 
 namespace brilliant::snapcast {
-
-#pragma pack(1)
 
   /**
    * @brief Time message. Stores a time point as seconds and microseconds
@@ -21,7 +20,26 @@ namespace brilliant::snapcast {
 
     /// Microseconds value
     std::uint32_t usec;
+
+    /**
+     * @brief Conversion operator to microseconds
+     * 
+     * @return The contained value as microseconds
+     */
+    constexpr operator std::chrono::microseconds() const noexcept {
+      using Rep = std::chrono::microseconds::rep;
+      return std::chrono::seconds(static_cast<Rep>(sec)) + 
+        std::chrono::microseconds(static_cast<Rep>(usec));
+    }
   };
+
+  /**
+   * @brief Size of Base struct 
+   *
+   * Added padding means sizeof(Base) is not necessarily equal to the 
+   * size of Base on the wire which has no padding.
+   */
+  constexpr std::size_t BASE_SIZE_BYTES = 26;
 
   /**
    * @brief Base message struct. Functionally a header for other message types
@@ -46,8 +64,6 @@ namespace brilliant::snapcast {
     /// Size of the message following Base. Does not include the size of Base
     std::uint32_t size;
   };
-
-#pragma pack()
 
   /**
    * @brief Base class for messages containing only json data. Stores a view of

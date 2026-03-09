@@ -1,259 +1,244 @@
-
 #pragma once
 
-#include <boost/json.hpp>
-#include <boost/json/src.hpp>
+#include <BrilliantSnapcast/Message.hpp>
+#include <BrilliantSnapcast/SnapConnection.hpp>
+#include <BrilliantSnapcast/TimeProvider.hpp>
+#include <BrilliantSnapcast/decoder/AnyDecoder.hpp>
+#include <boost/asio/awaitable.hpp>
+#include <system_error>
+#include <type_traits>
+#ifdef BRILLIANT_SNAPCAST_FLAC_DECODER
+#include <BrilliantSnapcast/decoder/flac/FlacDecoder.hpp>
+#endif
+#include <BrilliantSnapcast/DecoderFilter.hpp>
+#include <BrilliantSnapcast/Log.hpp>
+#include <BrilliantSnapcast/ServerSettingsFilter.hpp>
+#include <BrilliantSnapcast/decoder/pcm/PcmDecoder.hpp>
+#include <boost/asio.hpp>
+#include <boost/asio/deadline_timer.hpp>
 #include <chrono>
-#include <cstddef>
-#include <expected>
-
-#include "BrilliantSnapcast/BoostPmrWrapper.hpp"
-#include "BrilliantSnapcast/Message.hpp"
-#include "BrilliantSnapcast/MessageConv.hpp"
-#include "BrilliantSnapcast/TcpClient.hpp"
-#include "BrilliantSnapcast/UtilProvider.hpp"
+#include <memory_resource>
+#include <string_view>
+#include <vector>
 
 namespace brilliant::snapcast {
 
-  /**
-   * @brief Implements snapcast client functionality
-   *
-   * @tparam Socket The socket type
-   */
-  template <class Socket>
+  template <class Socket, class Pipeline>
   class SnapClient {
   public:
-    /**
-     * @brief Construct a new Snap Client object
-     *
-     * @param tcpClient The tcp client used for network operations
-     * @param mr A pointer to the memory resource used for dynamic allocations
-     */
-    SnapClient(TcpClient<Socket>& tcpClient, std::pmr::memory_resource* mr)
-        : _tcpClient(&tcpClient), _mr(mr) {}
+    SnapClient(Socket socket, Pipeline& inPipeline, TimeProvider& timeProvider,
+               std::pmr::memory_resource* mr = std::pmr::get_default_resource())
+        : _tcpConnection(std::move(socket), mr),
+          _snapConnection(_tcpConnection),
+          _pcmSink(inPipeline),
+          _timeProvider(timeProvider),
+          _decoder(decoder::pcm::PcmDecoder{}),
+          _state(0) {
+      setDecoder(inPipeline, _decoder);
+    }
 
-    /**
-     * @brief Construct a new Snap Client object. Uses the memory_resource
-     * contained in tcpClient.
-     *
-     * @param tcpClient The tcp client used for network operations
-     */
-    SnapClient(TcpClient<Socket>& tcpClient)
-        : _tcpClient(&tcpClient), _mr(tcpClient.getAllocator().resource()) {}
+    void stop() { _tcpConnection.disconnect(); }
 
-    /**
-     * @brief Send a message to the server. Creates the message header and
-     * populates sent time using std::chrono::steady_clock.
-     *
-     * @tparam Extent The extent of the buffer
-     * @param id The message id
-     * @param message The message to send
-     * @param buffer The buffer to copy serialized data to. Passed to network
-     * calls once populated.
-     * @return If the operation was successful, returns a Time struct containing
-     * the time that was populated in the outgoing header. This should be used
-     * when sending Time messagese to calculate network latency. If the
-     * operation fails, an error_code describing the failure is returned.
-     */
-    template <std::size_t Extent>
-    auto send(std::uint16_t id, Message message,
-              std::span<std::byte, Extent> buffer)
-        -> boost::asio::awaitable<
-            std::expected<Time, boost::system::error_code>> {
-      auto base = std::visit(
-          [this, &buffer, id](auto& msg) {
-            using type = std::decay_t<decltype(msg)>;
+    auto start(TcpConnection<Socket>::protocol::endpoint ep,
+               std::string_view mac, std::string_view host, std::string_view os,
+               std::string_view arch, std::int32_t instance)
+        -> boost::asio::awaitable<std::error_code> {
+      if (auto ec = co_await _tcpConnection.connect(ep)) {
+        BS_LOG_ERROR("Failed to connect: {} {}", ec.value(), ec.message());
+        _tcpConnection.disconnect();  // just in case
+        co_return ec;
+      }
 
-            const auto now =
-                std::chrono::duration_cast<std::chrono::microseconds>(
-                    std::chrono::steady_clock::now().time_since_epoch());
-            const auto nowSecs =
-                std::chrono::duration_cast<std::chrono::seconds>(now);
+      std::pmr::vector<std::byte> buffer(
+          4096, _tcpConnection.getAllocator().resource());
+      if (auto ec = co_await _snapConnection.sendHello(
+              mac, host, os, arch, instance, std::span(buffer))) {
+        BS_LOG_ERROR("Failed to send hello to server: {} {}", ec.value(),
+                     ec.message());
+        _tcpConnection.disconnect();
+        co_return ec;
+      }      
+      co_return std::error_code{};
+    }
 
-            Base b{};
-            b.id = id;
-            b.refersTo = 0;  // TODO(david):
-            b.sent.sec = static_cast<std::uint32_t>(nowSecs.count());
-            b.sent.usec = static_cast<std::uint32_t>((now - nowSecs).count());
-            if constexpr (std::is_same_v<type, Hello>) {
-              b.type = MessageType::HELLO;
-              b.size = static_cast<std::uint32_t>(sizeof(msg.size) + msg.size);
-            } else if constexpr (std::is_same_v<type, ClientInfo>) {
-              b.type = MessageType::CLIENT_INFO;
-              b.size = static_cast<std::uint32_t>(sizeof(msg.size) + msg.size);
-            } else if constexpr (std::is_same_v<type, ServerSettings>) {
-              b.type = MessageType::SERVER_SETTINGS;
-              b.size = static_cast<std::uint32_t>(sizeof(msg.size) + msg.size);
-            } else if constexpr (std::is_same_v<type, Time>) {
-              b.type = MessageType::TIME;
-              b.size = static_cast<std::uint32_t>(sizeof(Time));
-              msg = b.sent;
-            } else if constexpr (std::is_same_v<type, WireChunk>) {
-              b.type = MessageType::WIRE_CHUNK;
-              b.size = static_cast<std::uint32_t>(sizeof(Time) +
-                                                  sizeof(msg.size) + msg.size);
-            } else {
-              std::unreachable();
+    auto handleIncoming() -> boost::asio::awaitable<std::error_code> {
+      std::pmr::vector<std::byte> buffer(4096, _tcpConnection.getAllocator().resource());
+
+      while (_tcpConnection.isConnected()) {
+        auto result = co_await _snapConnection.read(std::span(buffer));
+        if (result) {
+          const auto& [base, msg] = *result;
+          switch (base.type) {
+          case MessageType::CODEC_HEADER: {
+            const auto& header = std::get<CodecHeader>(msg);
+            std::pmr::string codec(header.codec, header.codecSize,
+                                   _tcpConnection.getAllocator().resource());
+            BS_LOG_INFO("Codec is {}", codec);
+            if (codec == "pcm") {
+              _decoder.resetDecoder<decoder::pcm::PcmDecoder>();
+              BS_LOG_INFO("Set up pcm decoder");
             }
-            return b;
-          },
-          message);
+#ifdef BRILLIANT_SNAPCAST_FLAC_DECODER
+            else if (codec == "flac") {
+              _decoder.resetDecoder<decoder::flac::FlacDecoder>();
+              BS_LOG_INFO("Set up flac decoder");
+            }
+#endif
+            else {
+              BS_LOG_ERROR("Failed to set up a decoder");
+              _tcpConnection.disconnect();
+            }
 
-      if (std::size(buffer) < (sizeof(Base) + base.size)) {
-        co_return std::unexpected(boost::system::errc::make_error_code(
-            boost::system::errc::no_buffer_space));
-      }
+            if (auto formatResult = _decoder.getFormat(
+                    std::span(header.payload, header.size))) {
+              const auto& format = *formatResult;
+              _pcmSink.setFormat(format);
+              _state |= StateFlag::GOT_CODEC_HEADER;
+              BS_LOG_INFO("Set format {}:{}:{}", format.sampleRate, format.numChannels, format.bitDepth * 8);
+            } else {
+              const auto& ec = formatResult.error();
+              BS_LOG_ERROR("There was an error parsing the format: {} {}",
+                           ec.value(), ec.message());
+              _tcpConnection.disconnect();
+              co_return ec;
+            }
+          } break;
+          case MessageType::SERVER_SETTINGS: {
+            const auto& settings = std::get<ServerSettings>(msg);
+            std::string_view json(settings.payload, settings.size);
+            BS_LOG_DEBUG("Received server settings: {}", json);
 
-      brilliant::snapcast::write(buffer.first(sizeof(Base)), base);
-      brilliant::snapcast::write(buffer.subspan(sizeof(Base), base.size),
-                                 message);
-      auto [ec, size] =
-          co_await _tcpClient->write(buffer.first(sizeof(Base) + base.size));
-      if (ec) {
-        co_return std::unexpected(ec);
-      }
-      co_return base.sent;
-    }
-
-    /**
-     * @brief Convenience function for creating a json message
-     *
-     * @tparam Extent The buffer extent
-     * @param id The message id
-     * @param type The message type. Message types for non-json messages are
-     * invalid
-     * @param object The json object to serialize
-     * @param serializer The json serializer
-     * @param buffer The buffer to store serialized data. The serialized json
-     * string also uses the buffer.
-     * @return The time stamp of the sent message if successful, an error_code
-     * otherwise.
-     */
-    template <std::size_t Extent>
-    auto sendJson(uint16_t id, MessageType type, boost::json::object& object,
-                  boost::json::serializer& serializer,
-                  std::span<std::byte, Extent> buffer)
-        -> boost::asio::awaitable<
-            std::expected<Time, boost::system::error_code>> {
-      constexpr std::size_t TMP_BUF_SIZE = 512;
-
-      serializer.reset(&object);
-      std::size_t totalSize{};
-
-      std::array<char, TMP_BUF_SIZE> tmpBuf{};
-      for (; !serializer.done();) {
-        auto sv = serializer.read(tmpBuf.data(), tmpBuf.size());
-        std::memcpy(buffer.data() + totalSize, sv.data(), sv.size());
-        totalSize += sv.size();
-      }
-
-      // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-      std::string_view jsonString(reinterpret_cast<char*>(std::data(buffer)),
-                                  totalSize);
-
-      Message message = [type, jsonString] -> Message {
-        switch (type) {
-        case MessageType::HELLO:
-          return Hello(jsonString);
-        case MessageType::CLIENT_INFO:
-          return ClientInfo(jsonString);
-        case MessageType::SERVER_SETTINGS:
-          return ServerSettings(jsonString);
-        default:
-          std::unreachable();
+            bool settingsOk = true;
+            if (const auto e2eIdx = json.find(R"("bufferMs":)");
+                e2eIdx != std::string_view::npos) {
+              const auto start = e2eIdx + sizeof(R"("bufferMs":)") - 1;
+              const auto end = json.substr(start).find_first_of(",}");
+              std::int64_t e2e{};
+              if (auto fcResult = std::from_chars(json.data() + start,
+                                                  json.data() + end, e2e);
+                  fcResult.ec == std::errc{}) {
+                setEndToEndLatency(_pcmSink, std::chrono::milliseconds{e2e});
+              } else {
+                BS_LOG_ERROR("Failed to parse bufferMs in json string");
+                _tcpConnection.disconnect();
+                settingsOk = false;
+                co_return std::make_error_code(fcResult.ec);
+              }
+            } else {
+              settingsOk = false;
+            }
+            if (const auto volIdx = json.find(R"("volume":)");
+                volIdx != std::string_view::npos) {
+              const auto start = volIdx + sizeof(R"("volume":)") - 1;
+              const auto end = json.substr(start).find_first_of(",}");
+              std::uint32_t volume{};
+              if (auto fcResult = std::from_chars(json.data() + start,
+                                                  json.data() + end, volume);
+                  fcResult.ec == std::errc{}) {
+                brilliant::snapcast::setVolume(_pcmSink, volume);
+              } else {
+                BS_LOG_ERROR("Failed to parse volume in json string");
+                _tcpConnection.disconnect();
+                settingsOk = false;
+                co_return std::make_error_code(fcResult.ec);
+              }
+            } else {
+              settingsOk = false;
+            }
+            if (settingsOk) {
+              _state |= StateFlag::GOT_SERVER_SETTINGS;
+            }
+          } break;
+          case MessageType::TIME:
+            _timeProvider.addTime(base, std::get<Time>(msg));
+            break;
+          case MessageType::WIRE_CHUNK:
+            if (_state == READY) {
+              const auto& chunk = std::get<WireChunk>(msg);
+              _pcmSink.write(std::chrono::microseconds(chunk.timestamp),
+                             std::span(chunk.payload, chunk.size));
+            } else {
+              BS_LOG_DEBUG("State is not ready {:#x}", _state);
+            }
+            break;
+          case MessageType::ERROR: {
+            const auto& error = std::get<Error>(msg);
+            BS_LOG_WARNING(
+                "Received an error from the server: {} {} {}", error.errorCode,
+                std::string_view{error.error, error.errorSize},
+                std::string_view{error.errorMessage, error.errorMessageSize});
+          } break;
+          }
+        } else {
+          auto& ec = result.error();
+          BS_LOG_ERROR("Error reading message from server: {} {}", ec.value(),
+                       ec.message());
+          _tcpConnection.disconnect();
+          co_return ec;
         }
-      }();
-      // Ok to return the awaitable, buffer's lifetime outlasts this call
-      // and data is either copied/moved (like id or msg.size) or are pointers
-      // into buffer
-      return send(id, std::move(message), buffer.subspan(totalSize));
+      }
     }
 
-    /**
-     * @brief Convenience function to send a Hello message. Populates platform
-     * dependent information from the UtilProvider instance.
-     *
-     * @tparam Extent The buffer extent
-     * @param utilProvider A reference to the util proivider
-     * @param serializer A reference to the json serializer
-     * @param buffer The buffer to store serialized data. The serialized json
-     * string also uses the buffer.
-     * @return The time stamp of the sent message if successful, an error_code
-     * otherwise.
-     */
-    template <std::size_t Extent>
-    auto sendHello(UtilProvider& utilProvider,
-                   boost::json::serializer& serializer,
-                   std::span<std::byte, Extent> buffer)
-        -> boost::asio::awaitable<
-            std::expected<Time, boost::system::error_code>> {
-      const auto macAddress = utilProvider.getMacAddress(0, _mr);
-      BoostPmrWrapper wrapper(_mr);
-      boost::json::storage_ptr jsonAlloc(&wrapper);
-      boost::json::object helloJson({{"MAC", macAddress},
-                                     {"HostName", ""},
-                                     {"Version", "0.34"},
-                                     {"ClientName", "Snapclient"},
-                                     {"OS", utilProvider.getOS(_mr)},
-                                     {"Arch", utilProvider.getArch(_mr)},
-                                     {"Instance", ""},
-                                     {"ID", macAddress},
-                                     {"SnapStreamProtocolVersion", 2}},
-                                    jsonAlloc);
-      return sendJson(0, MessageType::HELLO, helloJson, serializer, buffer);
+    auto sendTime() -> boost::asio::awaitable<std::error_code> {
+      using namespace std::chrono_literals;
+
+      std::array<std::byte, sizeof(Base) + sizeof(Time)> buffer{};
+
+      auto exec = co_await boost::asio::this_coro::executor;
+
+      boost::asio::steady_timer timer(exec);
+      auto useAwaitable = boost::asio::bind_allocator(
+          _tcpConnection.getAllocator(), boost::asio::use_awaitable);
+      auto warmup = 60;
+      while (_tcpConnection.isConnected()) {
+        if (auto ec =
+                co_await _snapConnection.send(0, Time{}, std::span(buffer))) {
+          BS_LOG_ERROR("Error sending client time: {} {}", ec.value(),
+                       ec.message());
+          _tcpConnection.disconnect();
+          co_return ec;
+        }
+        if (warmup > 0) {
+          --warmup;
+          if (warmup == 0) {
+            BS_LOG_DEBUG("Synced time");
+            _state |= StateFlag::TIME_SYNCED;
+          }
+        }
+        const auto timeout = warmup > 0 ? 1ms : 1000ms;
+        timer.expires_from_now(timeout);
+        if (auto [ec] =
+                co_await timer.async_wait(boost::asio::as_tuple(useAwaitable));
+            ec) {
+          BS_LOG_WARNING("Error waiting on Time timer: {} {}", ec.value(),
+                         ec.message());
+        }
+      }
     }
 
-    /**
-     * @brief Read a message from the server
-     *
-     * @tparam Extent The buffer extent
-     * @param buffer View of storage to read raw data into
-     * @return The message header and message read from the data stream if
-     * successful. An error code otherwise.
-     */
-    template <std::size_t Extent>
-    auto read(std::span<std::byte, Extent> buffer)
-        -> boost::asio::awaitable<std::expected<std::tuple<Base, Message>,
-                                                boost::system::error_code>> {
-      if (std::size(buffer) < sizeof(Base)) {
-        co_return std::unexpected(boost::system::errc::make_error_code(
-            boost::system::errc::no_buffer_space));
-      }
-
-      auto [ec, size] = co_await _tcpClient->read(buffer.first(sizeof(Base)));
-      if (ec) {
-        co_return std::unexpected(ec);
-      }
-
-      const auto now = std::chrono::duration_cast<std::chrono::microseconds>(
-          std::chrono::steady_clock::now().time_since_epoch());
-      const auto nowSecs =
-          std::chrono::duration_cast<std::chrono::seconds>(now);
-
-      Base base{};
-      brilliant::snapcast::read(buffer, base);
-      if (std::size(buffer) < base.size) {
-        co_return std::unexpected(boost::system::errc::make_error_code(
-            boost::system::errc::no_buffer_space));
-      }
-
-      std::tie(ec, size) = co_await _tcpClient->read(buffer.first(base.size));
-      if (ec) {
-        co_return std::unexpected(ec);
-      }
-
-      base.received.sec = static_cast<std::uint32_t>(nowSecs.count());
-      base.received.usec = static_cast<std::uint32_t>((now - nowSecs).count());
-      co_return std::make_tuple(base,
-                                brilliant::snapcast::read(buffer, base.type));
+    void setVolume(std::uint32_t volume, bool muted) {
+      // support setting volume from outside
+      // send client info
+      setVolume(_pcmSink, volume);
     }
 
   private:
-    /// Pointer to the tcp client
-    TcpClient<Socket>* _tcpClient;
+    TcpConnection<Socket> _tcpConnection;
+    SnapConnection<Socket> _snapConnection;
+    Pipeline& _pcmSink;
+    TimeProvider& _timeProvider;
+    decoder::AnyDecoder _decoder;
 
-    /// Pointer to the memory resource
-    std::pmr::memory_resource* _mr;
+    enum StateFlag : std::uint8_t {
+      GOT_CODEC_HEADER = 0x1 << 0,
+      GOT_SERVER_SETTINGS = 0x1 << 1,
+      TIME_SYNCED = 0x1 << 2
+    };
+
+    static constexpr auto READY =
+        GOT_CODEC_HEADER | GOT_SERVER_SETTINGS | TIME_SYNCED;
+
+    std::underlying_type_t<StateFlag> _state;
   };
 
 }  // namespace brilliant::snapcast

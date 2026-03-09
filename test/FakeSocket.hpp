@@ -18,6 +18,7 @@ class FakeSocket : public boost::asio::basic_socket<Protocol, Executor> {
 
     template <class Handler>
     void operator()(Handler h) {
+      self->state->isConnected = !self->state->ec;
       boost::asio::dispatch(self->get_executor(),
                             std::bind(std::move(h), self->state->ec));
     }
@@ -66,7 +67,6 @@ public:
 
   template <class Endpoint, class Handler>
   auto async_connect(const Endpoint&, Handler h) {
-    //
     return boost::asio::async_initiate<Handler,
                                        void(boost::system::error_code)>(
         ConnectImpl(this), h);
@@ -84,6 +84,14 @@ public:
     return boost::asio::async_initiate<Handler, void(boost::system::error_code,
                                                      std::size_t)>(
         WriteOpImpl(this), h, buffers);
+  }
+
+  void close(boost::system::error_code&) {
+    state->isConnected = false;
+  }
+
+  auto is_open() const -> bool {
+    return state->isConnected;
   }
 
   SocketState* state;
